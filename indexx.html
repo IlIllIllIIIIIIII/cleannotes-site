@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minimal Notes App</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* CSS Variables for Theming - (Kept as before the minimalistic attempt) */
+:root { /* Light Theme Variables */
+--bg-color: #ffffff;
+--text-color: #333;
+--container-bg: #ffffff;
+--container-shadow: rgba(0, 0, 0, 0.08);
+--heading-color: #2c3e50;
+--subheading-color: #34495e;
+--textarea-bg: #ffffff;
+--textarea-border: #e0e0e0;
+--textarea-text-color: #333;
+--button-bg: #007bff;
+--button-hover-bg: #0056b3;
+--cancel-button-bg: #6c757d;
+--cancel-button-hover-bg: #5a6268;
+--hr-border: #e0e0e0;
+--note-item-bg: #fcfcfc;
+--note-item-border: #e0e0e0;
+--note-item-shadow: rgba(0, 0, 0, 0.05);
+--note-title-color: #4a69bd;
+--note-date-color: #888;
+--no-notes-color: #999;
+--theme-toggle-bg: #f0f0f0;
+--theme-toggle-border: #d0d0d0;
+--theme-toggle-color: #444;
+--toast-bg: rgba(50, 50, 50, 0.9);
+--toast-text-color: white;
+--toast-shadow: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode { /* Dark Theme Variables */
+--bg-color: #121212;
+--text-color: #e0e0e0;
+--container-bg: #1e1e1e;
+--container-shadow: rgba(0, 0, 0, 0.5);
+--heading-color: #f0f0f0;
+--subheading-color: #cccccc;
+--textarea-bg: #222222;
+--textarea-border: #444444;
+--textarea-text-color: #e0e0e0;
+--button-bg: #333333;
+--button-hover-bg: #555555;
+--cancel-button-bg: #555555;
+--cancel-button-hover-bg: #777777;
+--hr-border: #444444;
+--note-item-bg: #2a2a2a;
+--note-item-border: #4a4a4a;
+--note-item-shadow: rgba(0, 0, 0, 0.4);
+--note-title-color: #b0b0b0;
+--note-date-color: #999999;
+--no-notes-color: #bbbbbb;
+--theme-toggle-bg: #000000;
+--theme-toggle-border: #333333;
+--theme-toggle-color: #ffffff;
+--toast-bg: rgba(255, 255, 255, 0.9);
+--toast-text-color: #333;
+--toast-shadow: rgba(255, 255, 255, 0.2);
+}
+
+/* General Body and Container Styling */
+body {
+font-family: 'Open Sans', sans-serif;
+margin: 0;
+padding: 0; /* Remove body padding, layout will handle it */
+background-color: var(--bg-color);
+color: var(--text-color);
+display: flex; /* Use flexbox for the main layout */
+justify-content: center;
+align-items: flex-start; /* Align to top */
+min-height: 100vh;
+transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.app-wrapper { /* New wrapper for the two-column layout */
+display: flex; /* Makes it a flex container */
+width: 100%;
+max-width: 1200px; /* Adjust max-width for the new layout */
+margin: 20px; /* Add some margin around the whole app */
+height: calc(100vh - 40px); /* Fill most of the viewport height */
+border-radius: 12px;
+overflow: hidden; /* Important for inner elements not to spill out */
+box-shadow: 0 6px 20px var(--container-shadow);
+}
+
+.sidebar {
+flex: 0 0 300px; /* Fixed width sidebar, won't grow/shrink */
+background-color: var(--container-bg);
+border-right: 1px solid var(--hr-border); /* Separator line */
+padding: 20px;
+display: flex;
+flex-direction: column;
+overflow-y: auto; /* Scroll for notes list */
+}
+
+.main-editor-area {
+flex: 1; /* Takes remaining space */
+background-color: var(--container-bg);
+padding: 20px;
+display: flex;
+flex-direction: column;
+position: relative; /* For the theme toggle */
+}
+
+/* Theme Toggle Circle */
+#themeToggle {
+position: absolute; /* Position within main-editor-area */
+top: 20px;
+right: 20px;
+width: 40px;
+height: 40px;
+border-radius: 50%;
+background-color: var(--theme-toggle-bg);
+border: 1px solid var(--theme-toggle-border);
+cursor: pointer;
+display: flex;
+justify-content: center;
+align-items: center;
+font-size: 1.5em;
+color: var(--theme-toggle-color);
+box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+z-index: 1000;
+}
+#themeToggle:hover {
+box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+transform: translateY(-1px);
+}
+
+/* Toast Notification Styling */
+#toastNotification {
+position: fixed; /* Still fixed to viewport */
+top: 60px;
+left: 50%;
+transform: translateX(-50%);
+background-color: var(--toast-bg);
+color: var(--toast-text-color);
+padding: 10px 20px;
+border-radius: 8px;
+box-shadow: 0 4px 10px var(--toast-shadow);
+z-index: 1001;
+opacity: 0;
+visibility: hidden;
+transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+white-space: nowrap;
+}
+
+#toastNotification.show {
+opacity: 1;
+visibility: visible;
+}
+
+/* Heading Styles */
+h1 {
+color: var(--heading-color);
+text-align: center; /* Adjust as needed for sidebar/main */
+margin-bottom: 15px;
+font-weight: 600;
+font-size: 2.2em;
+transition: color 0.3s ease;
+}
+
+h2 { /* For "My Notes" in sidebar, and "Note" in editor */
+color: var(--subheading-color);
+margin-top: 0; /* Adjust for new layout */
+margin-bottom: 15px;
+font-size: 1.4em;
+transition: color 0.3s ease;
+}
+.sidebar h2 { /* "My Notes" heading */
+text-align: center;
+margin-bottom: 20px;
+}
+.main-editor-area h2 { /* "Note" heading in editor */
+text-align: left;
+margin-bottom: 10px;
+font-size: 1.8em;
+}
+
+
+/* Textarea Styling (Writing Box) */
+textarea {
+width: calc(100% - 24px); /* Full width of its container minus padding */
+flex-grow: 1; /* Allow textarea to fill available height */
+height: auto; /* Managed by flex-grow */
+padding: 12px;
+margin-bottom: 15px;
+border: 1px solid var(--textarea-border);
+border-radius: 15px;
+font-size: 0.95em;
+resize: none; /* Disable manual resize, flexbox handles it */
+box-shadow: none;
+background-color: var(--textarea-bg);
+color: var(--textarea-text-color);
+transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+}
+textarea:focus {
+border-color: #5a99ea;
+outline: none;
+}
+
+/* Button Styling */
+.main-editor-area .action-buttons { /* New wrapper for buttons below textarea */
+display: flex;
+justify-content: flex-end; /* Align buttons to the right */
+gap: 15px; /* Space between buttons */
+margin-top: 10px;
+}
+button {
+padding: 10px 22px;
+background-color: var(--button-bg);
+color: white;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+font-size: 0.95em;
+font-weight: 600;
+/* margin-right: 15px; Removed for gap */
+transition: background-color 0.3s ease, transform 0.2s ease;
+box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+button:hover {
+background-color: var(--button-hover-bg);
+transform: translateY(-2px);
+box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+button:active {
+transform: translateY(0);
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+#cancelEditButton {
+background-color: var(--cancel-button-bg);
+box-shadow: 0 2px 5px rgba(108, 117, 125, 0.2);
+}
+#cancelEditButton:hover {
+background-color: var(--cancel-button-hover-bg);
+box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
+/* Separator Line (main one - this one might be removed or repurposed) */
+hr {
+border: none;
+border-top: 1px solid var(--hr-border);
+margin: 30px 0;
+transition: border-color 0.3s ease;
+}
+/* Remove the main hr as it's not needed in this layout */
+.app-wrapper hr {
+display: none;
+}
+
+
+/* Notes Display Area - This will become the sidebar list of titles */
+.note-list-titles { /* New class for the list in sidebar */
+padding: 0;
+flex-grow: 1; /* Occupy remaining space in sidebar */
+list-style: none; /* Remove bullet points */
+}
+.note-list-titles .note-item-title { /* Each selectable note in the sidebar */
+background-color: var(--note-item-bg);
+border: 1px solid var(--note-item-border);
+padding: 12px;
+margin-bottom: 8px;
+border-radius: 8px;
+box-shadow: 0 1px 4px var(--note-item-shadow);
+cursor: pointer;
+transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+font-size: 0.9em;
+color: var(--text-color);
+overflow: hidden;
+white-space: nowrap;
+text-overflow: ellipsis; /* Truncate long titles */
+}
+.note-list-titles .note-item-title:hover {
+background-color: #e6e6e6; /* Lighter hover for light theme */
+transform: translateY(-1px);
+box-shadow: 0 2px 6px var(--note-item-shadow);
+}
+body.dark-mode .note-list-titles .note-item-title:hover {
+background-color: #3a3a3a; /* Darker hover for dark theme */
+}
+
+.note-list-titles .note-item-title.selected {
+background-color: var(--button-bg);
+color: white;
+border-color: var(--button-hover-bg);
+box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+body.dark-mode .note-list-titles .note-item-title.selected {
+background-color: var(--button-hover-bg);
+}
+
+
+.no-notes-message {
+color: var(--no-notes-color);
+font-style: italic;
+text-align: center;
+padding: 20px;
+transition: color 0.3s ease;
+}
+
+/* Note Action Buttons (Edit/Delete) - These will be placed in the sidebar as well or become part of the editor */
+/* They will be dynamically added/removed based on if a note is selected in editor */
+.note-actions {
+/* This div might not be directly used for sidebar note items */
+/* It will be used for buttons beneath the textarea in the main-editor-area */
+display: none; /* Hide for now, will be re-thought */
+}
+
+
+/* --- Media Query for Smaller Screens (Mobile responsiveness) --- */
+@media (max-width: 768px) {
+.app-wrapper {
+flex-direction: column; /* Stack columns vertically */
+height: auto; /* Auto height for stacked layout */
+margin: 10px;
+}
+
+.sidebar {
+flex: none; /* Remove fixed flex basis */
+width: 100%; /* Take full width */
+border-right: none;
+border-bottom: 1px solid var(--hr-border); /* Separator between sidebar and main */
+padding: 15px;
+}
+
+.main-editor-area {
+flex: none; /* Remove flex grow */
+width: 100%; /* Take full width */
+padding: 15px;
+min-height: 400px; /* Ensure editor has a minimum height on mobile */
+}
+
+#themeToggle {
+position: static; /* Position normally within flow on small screens */
+margin-left: auto; /* Push to right if desired */
+margin-bottom: 10px;
+}
+
+.sidebar h2 {
+margin-bottom: 15px;
+}
+.main-editor-area h2 {
+margin-top: 0;
+}
+
+.main-editor-area .action-buttons {
+justify-content: center; /* Center buttons on small screens */
+}
+
+textarea {
+width: calc(100% - 24px); /* Account for padding */
+height: 200px; /* Give a fixed height on smaller screens */
+}
+}
+
+/* --- Media Query for Even Wider Screens --- */
+@media (min-width: 1400px) {
+.app-wrapper {
+max-width: 1600px;
+}
+
+.sidebar {
+flex: 0 0 350px; /* Slightly wider sidebar */
+}
+
+.sidebar h2 {
+font-size: 1.6em;
+}
+.note-list-titles .note-item-title {
+font-size: 1em;
+padding: 15px;
+}
+
+.main-editor-area h2 {
+font-size: 2.2em;
+}
+textarea {
+padding: 15px;
+font-size: 1.05em;
+}
+.main-editor-area .action-buttons button {
+padding: 12px 25px;
+font-size: 1.05em;
+}
+}
+</style>
+</head>
+<body>
+<div id="toastNotification"></div>
+
+<div class="app-wrapper">
+<div class="sidebar">
+<div id="themeToggle"></div> <h2>My Notes</h2>
+<div id="notesListArea" class="note-list-titles">
+<p class="no-notes-message" id="initialNoNotesMessage">No notes yet. Start writing in the box!</p>
+</div>
+</div>
+
+<div class="main-editor-area">
+<h2>Note Content</h2> <textarea id="noteContent" placeholder="Select a note or start writing a new one..."></textarea>
+<div class="action-buttons">
+<button id="mainActionButton">Add Note</button>
+<button id="cancelEditButton" style="display:none;">Cancel Edit</button>
+</div>
+</div>
+</div>
+
+<script>
+// Get references to the HTML elements
+const themeToggle = document.getElementById('themeToggle');
+const toastNotification = document.getElementById('toastNotification');
+const noteContentInput = document.getElementById('noteContent');
+const mainActionButton = document.getElementById('mainActionButton');
+const cancelEditButton = document.getElementById('cancelEditButton');
+const notesListArea = document.getElementById('notesListArea'); // Changed ID
+const initialNoNotesMessage = document.getElementById('initialNoNotesMessage');
+
+let allNotes = [];
+let editingNoteId = null; // Stores the ID of the note currently being edited/displayed
+
+/**
+* Helper function to create a single note TITLE element for the sidebar.
+* @param {object} note - The note object ({id, text, date}).
+* @returns {HTMLElement} - The created div element for the note title.
+*/
+function createNoteTitleElement(note) {
+const noteItemTitle = document.createElement('div');
+noteItemTitle.classList.add('note-item-title');
+noteItemTitle.dataset.noteId = note.id;
+noteItemTitle.textContent = note.text.split('\n')[0].substring(0, 50) + (note.text.includes('\n') || note.text.length > 50 ? '...' : ''); // Show first line or truncated text
+
+// Event listener to load note into editor when title is clicked
+noteItemTitle.addEventListener('click', () => selectNoteForEditing(note.id));
+return noteItemTitle;
+}
+
+/**
+* Renders all note titles from the allNotes array into the sidebar.
+*/
+function renderNoteTitles() {
+notesListArea.innerHTML = ''; // Clear previous titles
+
+if (allNotes.length === 0) {
+const p = document.createElement('p');
+p.classList.add('no-notes-message');
+p.textContent = 'No notes yet. Start writing in the box!';
+notesListArea.appendChild(p);
+return;
+}
+
+allNotes.forEach(note => {
+const noteTitleElement = createNoteTitleElement(note);
+notesListArea.appendChild(noteTitleElement);
+});
+
+// If a note is currently selected/being edited, ensure its title is highlighted
+if (editingNoteId) {
+const selectedTitleElement = notesListArea.querySelector(`[data-note-id="${editingNoteId}"]`);
+if (selectedTitleElement) {
+selectedTitleElement.classList.add('selected');
+}
+}
+}
+
+/**
+* Function to load notes from localStorage.
+*/
+function loadNotes() {
+const storedNotes = localStorage.getItem('simpleNotesApp');
+if (storedNotes) {
+allNotes = JSON.parse(storedNotes);
+} else {
+allNotes = [];
+}
+renderNoteTitles(); // Render only titles initially
+}
+
+/**
+* Function to save the current allNotes array to localStorage.
+*/
+function saveNotes() {
+const notesJSON = JSON.stringify(allNotes);
+localStorage.setItem('simpleNotesApp', notesJSON);
+}
+
+/**
+* Selects a note from the sidebar and displays its content in the main editor.
+* @param {string} idToSelect - The unique ID of the note to display.
+*/
+function selectNoteForEditing(idToSelect) {
+const noteToEdit = allNotes.find(note => note.id === idToSelect);
+
+// Remove 'selected' class from previously selected title
+const currentSelected = notesListArea.querySelector('.note-item-title.selected');
+if (currentSelected) {
+currentSelected.classList.remove('selected');
+}
+
+if (noteToEdit) {
+noteContentInput.value = noteToEdit.text;
+editingNoteId = noteToEdit.id; // Set the currently edited note ID
+
+mainActionButton.textContent = 'Update Note';
+cancelEditButton.style.display = 'inline-block';
+
+// Add 'selected' class to the newly selected title
+const newlySelectedTitle = notesListArea.querySelector(`[data-note-id="${idToSelect}"]`);
+if (newlySelectedTitle) {
+newlySelectedTitle.classList.add('selected');
+}
+}
+}
+
+/**
+* Handles deleting a note.
+* @param {string} idToDelete - The unique ID of the note to delete.
+*/
+function deleteNote(idToDelete) {
+allNotes = allNotes.filter(note => note.id !== idToDelete);
+saveNotes();
+renderNoteTitles(); // Re-render sidebar after deletion
+
+// If the deleted note was the one currently in the editor, clear the editor
+if (editingNoteId === idToDelete) {
+resetUI();
+}
+
+if (allNotes.length === 0) {
+renderNoteTitles(); // Show "No notes yet..." if all deleted
+}
+
+showToast('Note deleted!');
+}
+
+/**
+* Resets the UI after saving or canceling an edit.
+*/
+function resetUI() {
+noteContentInput.value = '';
+mainActionButton.textContent = 'Add Note';
+cancelEditButton.style.display = 'none';
+editingNoteId = null; // Clear the editing note ID
+
+// Remove 'selected' class from all titles
+const currentSelected = notesListArea.querySelector('.note-item-title.selected');
+if (currentSelected) {
+currentSelected.classList.remove('selected');
+}
+}
+
+// --- Toast Notification Function ---
+/**
+* Displays a temporary toast notification.
+* @param {string} message - The message to display.
+* @param {number} duration - How long the toast should be visible in milliseconds (default: 3000).
+*/
+function showToast(message, duration = 3000) {
+toastNotification.textContent = message;
+toastNotification.classList.add('show');
+
+setTimeout(() => {
+toastNotification.classList.remove('show');
+}, duration);
+}
+
+// --- Theme Toggle Logic ---
+function applyTheme(theme) {
+if (theme === 'dark') {
+document.body.classList.add('dark-mode');
+} else {
+document.body.classList.remove('dark-mode');
+}
+localStorage.setItem('theme', theme);
+}
+
+function loadSavedTheme() {
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) {
+applyTheme(savedTheme);
+} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+applyTheme('dark');
+} else {
+applyTheme('light');
+}
+}
+
+themeToggle.addEventListener('click', function() {
+const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+applyTheme(newTheme);
+});
+// --- End Theme Toggle Logic ---
+
+// --- Event Listeners ---
+mainActionButton.addEventListener('click', function() {
+const userNote = noteContentInput.value.trim();
+if (userNote === '') {
+showToast('Please write something before adding/updating a note!');
+return;
+}
+
+if (editingNoteId) {
+// Update existing note
+const noteToUpdate = allNotes.find(note => note.id === editingNoteId);
+if (noteToUpdate) {
+noteToUpdate.text = userNote;
+noteToUpdate.date = new Date().toLocaleString();
+showToast('Note updated!');
+}
+} else {
+// Add new note
+const newNote = {
+id: Date.now().toString(),
+text: userNote,
+date: new Date().toLocaleString()
+};
+allNotes.unshift(newNote); // Add to the beginning
+showToast('Note added!');
+}
+
+saveNotes();
+renderNoteTitles(); // Re-render the sidebar list
+
+// After adding/updating, select the newly added/updated note in the editor
+// or reset if it was a new note not selected.
+if (editingNoteId) { // If it was an update, re-select it to keep highlight
+selectNoteForEditing(editingNoteId);
+} else { // If it was a new note, select it.
+selectNoteForEditing(allNotes[0].id); // Select the newest note
+}
+noteContentInput.focus();
+});
+
+cancelEditButton.addEventListener('click', function() {
+resetUI();
+showToast('Edit canceled.');
+});
+
+// Event listener for the sidebar (delegation for delete buttons if added there)
+notesListArea.addEventListener('click', function(event) {
+const target = event.target;
+// For now, we only handle clicks on the note titles themselves
+// Delete buttons will be part of the editor or added directly to titles later if desired.
+});
+
+
+// Initial Setup
+loadNotes();
+loadSavedTheme();
+resetUI(); // Ensure editor is clean on load
+</script>
+</body>
+</html>
